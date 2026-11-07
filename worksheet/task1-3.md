@@ -1,8 +1,8 @@
 # Tutorial 6 worksheet: serving patterns
 
-**Name / ชื่อ:**
+**Name / ชื่อ:** อภิวัชร ผดุงอรรถ
 
-**Student ID / รหัสนิสิต:**
+**Student ID / รหัสนิสิต:** 6970314621
 
 This is **individual work**: each student completes and submits their own copy, in their own fork.
 
@@ -16,39 +16,39 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 
 | Run | p50 ms | p95 ms | accuracy | large calls |
 |---|---|---|---|---|
-| t0-large | | | | |
-| t0-small | | | | |
+| t0-large |511 |616 |93.50% |100% |
+| t0-small |31 |60 |72.50% | 0%|
 
 **Q0.** What does the large model buy, and what does it cost?
 
 *large model ให้อะไรเพิ่ม และต้องแลกด้วยอะไร*
 
->
+>Large Model ให้ Accuracy เพิ่ม แต่ต้องแลกด้วย Cost และ Latency ที่เพิ่มมากขึ้นด้วย
 
 ## Task 1: Fallback prediction (copy the Task 1 results from `results/runs.csv` here / copy ผลลัพธ์ของ Task 1 จาก `results/runs.csv` มาวางที่นี่)
 
 | Run | run time (s) | p50 ms | p95 ms | errors | pending | accuracy |
 |---|---|---|---|---|---|---|
-| t1-before | | | | | | |
-| t1-after | | | | | | |
+| t1-before |26.5| 236| 374| 18| 0| 93.40%
+| t1-after | 10.1| 414| 1010| 0| 22| 92.70%|
 
 **Q1.1** In `t1-before`, p50 can look *better* than the baseline. Why is p50 misleading here? Which column tells the real story?
 
 *ใน `t1-before` ค่า p50 อาจดู "ดีกว่า" baseline ทำไม p50 จึงทำให้เข้าใจผิดในกรณีนี้ และ column ไหนบอกความจริง*
 
->
+>Column run time และ errors บอกความจริง t1-before เกิด error และ run time มาก ซึ่งตัว latency (p50/p95) จะถูกนับเฉพาะตัวที่ pass เท่านั้น
 
 **Q1.2** The hang affects only 10% of large-model calls. Why is it worse for the system than 10% of reviews being slow? Think about what a waiting request holds on to in the review service and the gateway.
 
 *การค้างเกิดกับ calls ไปยัง large model แค่ 10% ทำไมจึงส่งผลต่อระบบแย่กว่าการที่รีวิว 10% ช้าลงเฉยๆ ลองคิดว่า request ที่รออยู่ถือทรัพยากรอะไรไว้ใน review service และ gateway*
 
->
+>การเชื่อมต่อไปยัง large model ทีม่มีการประมวลผลนานทำให้ส่งผลกระทบต่อการเชื่อมต่ออื่นไปด้วย
 
 **Q1.3** Pending reviews have no label. Suggest what should happen to them, and name the topology from the lecture that does it.
 
 *รีวิวที่ pending ยังไม่มี label ควรจัดการกับรีวิวเหล่านี้อย่างไร และ topology ใดจาก lecture ที่ทำแบบนั้น*
 
->
+>จัดเป็น queue ไว้ตาม topology 4
 
 **Q1.4** We chose a 1-second timeout. What goes wrong if it is 0.1 s? And if it is 10 s?
 
