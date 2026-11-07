@@ -29,8 +29,8 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 
 | Run | run time (s) | p50 ms | p95 ms | errors | pending | accuracy |
 |---|---|---|---|---|---|---|
-| t1-before |26.5| 236| 374| 18| 0| 93.40%
-| t1-after | 10.1| 414| 1010| 0| 22| 92.70%|
+| t1-before |26.5| 236| 374| 18| 0| 93.40%|
+| t1-after | 10.1| 414| 1019| 0| 22| 92.70%|
 
 **Q1.1** In `t1-before`, p50 can look *better* than the baseline. Why is p50 misleading here? Which column tells the real story?
 
@@ -42,7 +42,7 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 
 *การค้างเกิดกับ calls ไปยัง large model แค่ 10% ทำไมจึงส่งผลต่อระบบแย่กว่าการที่รีวิว 10% ช้าลงเฉยๆ ลองคิดว่า request ที่รออยู่ถือทรัพยากรอะไรไว้ใน review service และ gateway*
 
->การเชื่อมต่อไปยัง large model ทีม่มีการประมวลผลนานทำให้ส่งผลกระทบต่อการเชื่อมต่ออื่นไปด้วย
+>การเชื่อมต่อไปยัง large model ที่มีการประมวลผลนานทำให้ส่งผลกระทบต่อการเชื่อมต่ออื่นไปด้วย
 
 **Q1.3** Pending reviews have no label. Suggest what should happen to them, and name the topology from the lecture that does it.
 
@@ -54,7 +54,7 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 
 *เราเลือก timeout 1 วินาที จะเกิดปัญหาอะไรถ้าตั้งเป็น 0.1 วินาที และถ้าตั้งเป็น 10 วินาที*
 
->
+>0.1 วินาทีทำให้ process จบไวขึ้น ส่วน 10 วินาทีทำให้ process ค้างนานจน hang
 
 ## Task 2: Cascade (copy the Task 2 results from `results/runs.csv` here / copy ผลลัพธ์ของ Task 2 จาก `results/runs.csv` มาวางที่นี่)
 
