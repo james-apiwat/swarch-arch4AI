@@ -42,7 +42,7 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 
 *การค้างเกิดกับ calls ไปยัง large model แค่ 10% ทำไมจึงส่งผลต่อระบบแย่กว่าการที่รีวิว 10% ช้าลงเฉยๆ ลองคิดว่า request ที่รออยู่ถือทรัพยากรอะไรไว้ใน review service และ gateway*
 
->การเชื่อมต่อไปยัง large model ถูก hang rate ถือรอไว้เฉยๆ ทำให้ส่งผลกระทบต่อ request อื่น
+>การเชื่อมต่อไปยัง large model ถูก call ที่ค้างถือรอไว้เฉยๆ ทำให้ส่งผลกระทบต่อ request อื่น
 
 **Q1.3** Pending reviews have no label. Suggest what should happen to them, and name the topology from the lecture that does it.
 
@@ -55,8 +55,8 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 *เราเลือก timeout 1 วินาที จะเกิดปัญหาอะไรถ้าตั้งเป็น 0.1 วินาที และถ้าตั้งเป็น 10 วินาที*
 
 >- 0.1 วินาทีทำให้ process จบไวเกินไป (pending ทั้งหมด 200/200 request) และการใช้ large call ทำให้เปลือง cost
->- 10 วินาทีทำให้บาง service ค้างนานจน hang  
-#ตาม QR2 ที่ว่า review service ไม่ควรเกิน 1 วินาที Task 2: Cascade (copy the Task 2 results from `results/runs.csv` here / copy ผลลัพธ์ของ Task 2 จาก `results/runs.csv` มาวางที่นี่)
+>- timeout 10 วินาที ไม่ส่งผลอะไรเนื่องจาก timeout ของระบบน้อยกว่า 10 วินาทีอยู่แล้ว อ้างอิงจากผลของ t1-before ที่ให้ค่า acccuracy ที่เท่ากัน
+  
 
 | Run | threshold | p50 ms | p95 ms | accuracy | large calls |
 |---|---|---|---|---|---|
