@@ -55,7 +55,7 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 *เราเลือก timeout 1 วินาที จะเกิดปัญหาอะไรถ้าตั้งเป็น 0.1 วินาที และถ้าตั้งเป็น 10 วินาที*
 
 >- 0.1 วินาทีทำให้ process จบไวเกินไป (pending ทั้งหมด 200/200 request) และการใช้ large call ทำให้เปลือง cost
->- timeout 10 วินาที ไม่ส่งผลอะไรเนื่องจาก timeout ของระบบน้อยกว่า 10 วินาทีอยู่แล้ว อ้างอิงจากผลของ t1-before ที่ให้ค่า acccuracy ที่เท่ากัน
+>- timeout 10 วินาที ไม่ส่งผลอะไรเนื่องจาก timeout ของระบบเป็น 10 วินาทีอยู่แล้ว อ้างอิงจากผลของ t1-before ที่ให้ค่า accuracy ที่เท่ากัน
   
 
 ## Task 2: Cascade (copy the Task 2 results from results/runs.csv here / copy ผลลัพธ์ของ Task 2 จาก results/runs.csv มาวางที่นี่)
@@ -71,7 +71,7 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 
 *จะเลือก threshold ใดสำหรับ deploy ใน CampusEats เพราะอะไร และต้องยอมเสีย quality ใดไป*
 
->
+>threshold 0.6 เนื่องจากมีการใช้ large call ที่น้อยมาก ได้ latency ต่ำที่สุด อาจจะต้องยอมเสีย accuracy บางส่วน แต่ผลลัพธ์ที่ได้ก็มากพอๆกับ threshold ที่ใช้ large call เยอะๆ
 
 **Q2.2** Look at p50 and p95 for your threshold. Why does the cascade help p50 much more than p95?
 
