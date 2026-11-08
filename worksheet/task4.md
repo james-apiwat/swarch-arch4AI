@@ -1,14 +1,14 @@
 # Task 4: Deployment topologies and trade-offs
 
-**Name / ชื่อ:**
+**Name / ชื่อ:** อภิวัชร ผดุงอรรถ
 
-**Student ID / รหัสนิสิต:**
+**Student ID / รหัสนิสิต:** 6970314621
 
 This is **individual work**: each student completes and submits their own copy, in their own fork.
 
 *งานนี้เป็น**งานเดี่ยว** นิสิตแต่ละคนทำและส่งงานของตัวเอง ใน fork ของตัวเอง*
 
-**Scenario (A, B or C) / Scenario ที่เลือก:**
+**Scenario (A, B or C) / Scenario ที่เลือก:** A. Owner alerts
 
 Choose **one** scenario below. If the last digit of your student ID is odd, take A or B; if it is even, take B or C. Use your measurements from Tutorial 6 as evidence: cite run names from `results/runs.csv`. Answer in Thai or English.
 
@@ -58,9 +58,9 @@ The three most important quality requirements for your scenario, each with a num
 
 | # | Quality | Requirement |
 |---|---|---|
-| 1 | | |
-| 2 | | |
-| 3 | | |
+| 1 | Performance (ความเร็วของ alert) | เจ้าของร้านได้รับ alert ภายใน 2 วินาทีหลังลูกค้าโพสต์รีวิว ที่ peak 40 รีวิว/วินาที โดยขั้น inference ใช้ไม่เกิน 1 วินาที |
+| 2 | Accuracy (ความน่าเชื่อถือของ alert) | alert ที่ส่งออกถูกต้องอย่างน้อย 94% (ใกล้เคียง large model ล้วนที่ 94–95%) และ accuracy รวมไม่ต่ำกว่า 90% (QR3) ยอมให้พลาด alert ได้บ้าง |
+| 3 | Capacity และ cost | ที่ peak เรียก large model ไม่เกิน 20 calls/s (QR5) หรือไม่เกิน 50% ของรีวิว และให้น้อยที่สุดเท่าที่ทำได้ (QR4) |
 
 ## 2. Design / การออกแบบ
 
@@ -68,16 +68,39 @@ Your topology, the patterns you add, and a container-level diagram (C4 level 2).
 
 *topology ที่เลือก pattern ที่เพิ่ม และ diagram ระดับ container (C4 level 2) เขียนด้วย Mermaid*
 
+**Topology:** T3 Hybrid: small model รันเป็น library ใน review service ส่วน large model เป็น remote service
+
+**Patterns ที่เพิ่ม:**
+- **Cascade (threshold 0.6):** ตอบด้วย small model ก่อน และส่งต่อ large model เฉพาะเมื่อ confidence ต่ำกว่า 0.6
+- **Cache:** รีวิวที่ข้อความซ้ำไม่ต้องเรียกโมเดล โดย cache key รวม model version
+- **Fallback:** รอ large model ไม่เกิน 1 วินาที ถ้าไม่ทันให้บันทึกเป็น `pending` ไม่ส่ง alert แล้วให้ batch labeler ติด label ทีหลัง
+
+**เงื่อนไขการส่ง alert:** ส่ง push เฉพาะเมื่อ label เป็น negative และ confidence อย่างน้อย 0.8 เพราะใน scenario นี้ alert ที่ผิดเสียหายกว่า alert ที่พลาด
+
 ```mermaid
 C4Container
-    title Your design: container diagram
-    %% Replace the example below with your own people, containers and relationships.
-    %% See the CampusEats C4 diagram in README.md for the full syntax.
-    Person(customer, "Customer", "Writes restaurant reviews")
+    title Scenario A: Owner alerts (T3 Hybrid + cascade + cache + fallback)
+    Person(customer, "Customer", "โพสต์รีวิวร้าน")
+    Person(owner, "Restaurant owner", "รับ push alert เมื่อมีรีวิวเชิงลบ")
     System_Boundary(campuseats, "CampusEats") {
-        Container(review, "Review service", "Python, FastAPI", "What it does")
+        Container(gateway, "API gateway", "Python, FastAPI, :8000", "จุดเข้าเดียวของ client")
+        Container(review, "Review service", "Python, FastAPI, scikit-learn, :8001", "บันทึกรีวิว รัน small model แบบ library ทำ cascade 0.6 และ cache ถ้า large model ไม่ตอบใน 1 วินาทีให้เป็น pending")
+        ContainerDb(store, "Review store", "Database", "เก็บรีวิว label และสถานะ pending")
+        Container(inference, "Inference service", "Python, FastAPI, scikit-learn, :8002", "large model สูงสุด 20 calls ต่อวินาที")
+        Container(alert, "Alert service", "Python, FastAPI", "ส่ง alert เฉพาะ label negative ที่ confidence อย่างน้อย 0.8")
+        Container(batch, "Batch labeler", "Python job", "ติด label ให้รีวิว pending ทีหลัง โดยไม่ส่ง alert ย้อนหลัง")
     }
-    Rel(customer, review, "Posts reviews", "HTTP/JSON")
+    System_Ext(push, "Push provider", "ส่ง push notification ไปยังมือถือเจ้าของร้าน")
+    Rel(customer, gateway, "โพสต์รีวิว", "HTTP/JSON")
+    Rel(gateway, review, "ส่งต่อ request", "HTTP/JSON")
+    Rel(review, store, "บันทึกรีวิวและ label", "SQL")
+    Rel(review, inference, "POST /predict เฉพาะรีวิวที่ small model ไม่มั่นใจ", "REST, timeout 1 s")
+    Rel(review, alert, "ส่งรีวิวที่ได้ label แล้ว", "HTTP/JSON")
+    Rel(alert, push, "ส่ง alert", "HTTPS")
+    Rel(push, owner, "push notification")
+    Rel(batch, store, "อ่านและอัปเดตรีวิว pending", "SQL")
+    Rel(batch, inference, "POST /predict นอกช่วง peak", "REST")
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
 
 ## 3. Evidence / หลักฐาน
@@ -88,8 +111,28 @@ Which runs support your choice? Show the numbers and, for scenario A, the capaci
 
 | Run | What it shows / แสดงอะไร |
 |---|---|
-| | |
-| | |
+| t0-large | large 100% → 40 × 1.00 = **40 calls/s** เกิน capacity 2 เท่า แม้ accuracy สูงสุด 93.5% |
+| t0-small | ไม่เรียก large model และ p95 60 ms แต่ accuracy 72.5% ต่ำกว่า QR3 (90%) จึงจะเกิด alert ผิดมาก |
+| t2-0.6 | large 38% → 40 × 0.38 = **15.2 calls/s** (76% ของ capacity), accuracy 91.5%, p95 539 ms: threshold เดียวที่อยู่ใน capacity โดยไม่ต้องพึ่ง cache |
+| t2-0.7 / t2-0.8 / t2-0.9 | large 53% / 64% / 77% → **21.2 / 25.6 / 30.8 calls/s** เกิน 20 calls/s ทั้งหมด |
+| t3-cache | large 31% → 40 × 0.31 = **12.4 calls/s** (62% ของ capacity), p50 8 ms, p95 558 ms, accuracy 91.5%, cache hits 36% |
+| t1-before | ไม่มี fallback และ large ค้าง 10%: errors 18, ใช้เวลารัน 26.5 s |
+| t1-after | มี fallback และ large ค้าง 10%: errors 0, pending 22, p95 1019 ms ยังอยู่ในงบ 2 วินาที |
+
+**Capacity ที่ peak:** large calls ต่อวินาที = 40 รีวิว/วินาที × สัดส่วน large calls ซึ่งต้องไม่เกิน 20 calls/s สัดส่วนจึงต้องไม่เกิน 20/40 = 50% design นี้ใช้ **15.2 calls/s** ตอน cache ว่าง (t2-0.6) และ **12.4 calls/s** เมื่อ cache ทำงาน (t3-cache)
+
+**งบเวลา 2 วินาที:** ขั้น inference ใช้ไม่เกินประมาณ 1 วินาที (p95 558 ms ใน t3-cache และถูกจำกัดด้วย timeout ตาม t1-after) จึงเหลือประมาณ 1 วินาทีสำหรับส่ง push ซึ่งยังไม่ได้วัด
+
+**หลักฐานเสริมเรื่อง alert ที่ผิด** (ไม่อยู่ใน `results/runs.csv` คำนวณจากโมเดลใน `inference_service/models.py` กับ workload 200 รีวิวของ load test และ `data/test.csv` 500 รีวิว):
+
+| นโยบาย alert | Precision ของ negative (200 / 500 รีวิว) | Recall (200 / 500 รีวิว) |
+|---|---|---|
+| small model ล้วน | 75.0% / 66.4% | 74.3% / 72.7% |
+| large model ล้วน | 95.3% / 94.1% | 92.7% / 96.3% |
+| cascade 0.6 ส่งทุก negative | 91.1% / 89.3% | 93.6% / 93.6% |
+| **cascade 0.6 ส่งเฉพาะ confidence อย่างน้อย 0.8 (ที่เลือก)** | **94.0% / 94.9%** | **71.6% / 83.5%** |
+
+**ข้อควรระวัง:** สัดส่วน 38% มาจาก workload ที่มีรีวิวสั้นซ้ำๆ ราว 25% ถ้าใช้เฉพาะรีวิวจาก `data/test.csv` สัดส่วนที่ threshold 0.6 จะเป็น 50% หรือ 20 calls/s เต็ม capacity พอดี นอกจากนี้ load test ส่งพร้อมกัน 10 requests ไม่ได้ยิงจริงที่ 40 รีวิว/วินาที
 
 ## 4. ADR
 
@@ -97,20 +140,36 @@ Use the ADR format from W5.
 
 *ใช้รูปแบบ ADR จาก W5*
 
-**Title:**
+**Title:** ใช้ Hybrid (T3) ร่วมกับ cascade threshold 0.6, cache และ fallback สำหรับ owner alerts
 
 **Status:** Proposed
 
-**Context:**
+**Context:** ระบบต้องแจ้งเจ้าของร้านภายใน 2 วินาที ที่ peak 40 รีวิว/วินาที แต่ large model รับได้สูงสุด 20 calls/s จึงส่งไป large model ได้ไม่เกิน 50% ของรีวิว การใช้ large model ล้วนแม่นที่สุด (t0-large 93.5%) แต่ต้องใช้ 40 calls/s ส่วน small model ล้วนไม่ใช้ large model เลย แต่แม่นเพียง 72.5% (t0-small) ใน scenario นี้ alert ที่ผิดทำให้เจ้าของร้านเลิกเชื่อถือ ส่วน alert ที่พลาดยอมรับได้
 
 **Decision:**
+1. ใช้ T3 Hybrid โดยรัน small model ใน review service และเรียก large model ผ่าน inference service เพราะ lecture ระบุว่า cascade ลดต้นทุน inference และเหมาะกับ hybrid deployment
+2. ใช้ cascade threshold 0.6 ซึ่งเป็นค่าเดียวที่วัดแล้วอยู่ใน capacity โดยไม่ต้องพึ่ง cache
+3. เปิด cache โดยใส่ model version ใน key เพื่อลดภาระ large model และเลิกใช้คำตอบเก่าได้เมื่อเปลี่ยนโมเดล
+4. ใช้ fallback timeout 1 วินาที รีวิวที่ไม่ทันเป็น `pending` ไม่ส่ง alert และให้ batch labeler ติด label นอกช่วง peak
+5. ส่ง alert เฉพาะ label negative ที่ confidence อย่างน้อย 0.8 โดยแยกเงื่อนไขนี้ไว้ใน Alert service ตามหลัก separate models from business logic
 
 **Consequences:**
 - Positive:
+  - ใช้ large model 15.2 calls/s เมื่อ cache ว่าง (t2-0.6) และ 12.4 calls/s เมื่อ cache ทำงาน (t3-cache) ซึ่งต่ำกว่า 20 calls/s
+  - ขั้น inference มี p95 ประมาณ 540–560 ms และถูกจำกัดที่ประมาณ 1 วินาที จึงเหลือเวลาส่ง push ภายใน 2 วินาที
+  - เงื่อนไข confidence ทำให้ alert ถูกต้องขึ้นจาก 89–91% เป็น 94–95% โดยไม่เพิ่ม large calls
+  - large model ค้างแล้วการโพสต์รีวิวไม่ล้มเหลว (t1-after errors 0)
 - Negative:
+  - เจ้าของร้านพลาด alert มากขึ้น: recall ลดจาก 94% เหลือ 72–84% และรีวิว `pending` จะไม่มี alert
+  - accuracy รวมลดจาก 93.5% เหลือ 91.5%
+  - ถ้ารีวิวซ้ำน้อยกว่าที่วัด large calls อาจถึง 50% หรือ 20 calls/s เต็ม capacity ต้องเฝ้าดูตัวเลขนี้จริงและอาศัย fallback เมื่อเกิน
+  - small model ผูกกับ review service ซึ่งขัดกับหลัก separate models from business logic บางส่วน จึงต้องแยกเป็น module ที่มี interface ชัดเจน และการเปลี่ยน small model ต้อง deploy service นี้ใหม่พร้อมจัดการ cache ตามไปด้วย
 
 **Alternatives considered:** at least one topology you rejected, and why.
 
 *อย่างน้อยหนึ่ง topology ที่ไม่เลือก และเหตุผล*
 
->
+>- **T1 Model as a service แบบ large model ล้วน:** ต้องใช้ 40 calls/s เป็น 2 เท่าของ capacity (t0-large)
+>- **T1 ที่ทำ cascade ใน inference service:** ได้ตัวเลขเหมือน t2-0.6 แยกโมเดลออกจาก business logic ได้ดีกว่า และอัปเดตโมเดลได้โดยไม่ต้องแก้ review service แต่ถ้า inference service ล่ม รีวิวทุกรายการจะไม่ได้ label แม้รายการที่ small model ตอบได้ และรีวิว 62% ต้องเสีย network hop โดยไม่จำเป็น
+>- **T2 Model as a library แบบ small model ล้วน:** accuracy 72.5% (t0-small) ต่ำกว่า QR3 และ alert ถูกต้องเพียง 66–75% ซึ่งขัดกับข้อกำหนดเรื่องความน่าเชื่อถือ
+>- **T4 Asynchronous / batch:** ติด label ทีหลังเป็นชุด จึงไม่ทัน 2 วินาที ใช้เป็นเพียงส่วนเสริมสำหรับรีวิว `pending`

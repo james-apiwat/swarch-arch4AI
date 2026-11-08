@@ -71,37 +71,39 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 
 *จะเลือก threshold ใดสำหรับ deploy ใน CampusEats เพราะอะไร และต้องยอมเสีย quality ใดไป*
 
->threshold 0.6 เนื่องจากมีการใช้ large call ที่น้อยมาก ได้ latency ต่ำที่สุด อาจจะต้องยอมเสีย accuracy บางส่วน แต่ผลลัพธ์ที่ได้ก็มากพอๆกับ threshold ที่ใช้ large call เยอะๆ
+>threshold 0.6 เนื่องจากมีการใช้ large call ที่น้อยมาก ได้ latency ต่ำที่สุด อาจจะต้องยอมเสีย accuracy จาก 93.50% เป็น 91.50% ซึ่งผลลัพธ์ที่ได้ก็มากพอๆกับ threshold ที่ใช้ large call เยอะๆ
 
 **Q2.2** Look at p50 and p95 for your threshold. Why does the cascade help p50 much more than p95?
 
 *ดูค่า p50 และ p95 ของ threshold ที่เลือก ทำไม cascade จึงช่วย p50 ได้มากกว่า p95 มาก*
 
->
+>ที่ threshold 0.6 มีรีวิว 62% ที่ small model ตอบเองได้ (large calls 38%) ค่า p50 จึงอยู่ในกลุ่มที่เร็วและลดจาก 511 เหลือ 17 ms (t0-large → t2-0.6) แต่ p95 อยู่ในกลุ่ม 38% ที่ยังต้องรอ large model ซึ่งทำงานพร้อมกันได้แค่ 4 calls จึงลดเพียง 616 → 539 ms เห็นได้ชัดจาก t2-0.7 ที่ large calls เกิน 50% (53%) ทำให้ p50 กระโดดเป็น 338 ms ทันที
 
 **Q2.3** The cascade trusts the small model's confidence. Give one situation where that trust is misplaced, and its effect on users.
 
 *cascade เชื่อ confidence ของ small model ยกตัวอย่างหนึ่งสถานการณ์ที่ไม่ควรเชื่อ และผลที่เกิดกับผู้ใช้*
 
->
+>รีวิวที่มีคำปฏิเสธ small model อ่านเป็นคำเดี่ยว จึงตอบ negative ด้วย confidence 0.7 ซึ่งผ่าน threshold 0.6 และไม่ถูกส่งต่อ ทั้งที่ large model ตอบ positive ได้ถูกต้อง ผลคือเจ้าของร้านเห็นรีวิวชมเป็นลูกค้าไม่พอใจ และอาจเสียเวลาแก้ปัญหาที่ไม่มีอยู่จริง
 
 ## Task 3: Cached predictions (copy the Task 3 results from `results/runs.csv` here / copy ผลลัพธ์ของ Task 3 จาก `results/runs.csv` มาวางที่นี่)
 
 | Run | p50 ms | p95 ms | accuracy | large calls | cache hits |
 |---|---|---|---|---|---|
-| t3-cache | | | | | |
+| t3-cache |8 |558 |91.50% |31% |36% |
 
 **Q3.1** Which reviews benefit from the cache, and which never will?
 
 *รีวิวแบบไหนได้ประโยชน์จาก cache และแบบไหนไม่มีวันได้ประโยชน์*
 
->
+>รีวิวที่ข้อความซ้ำกันทุกคำได้ประโยชน์ เช่นรีวิวสั้นที่คนเขียนบ่อย (t3-cache มี cache hits 36%) ซึ่งตรงกับเงื่อนไข few distinct inputs แต่จะลด cost จริงเฉพาะรายการซ้ำที่ปกติต้องไป large model  
+ส่วนรีวิวที่ข้อความไม่ซ้ำใครจะไม่มีวันได้ประโยชน์ เพราะ key ตรงกันได้ก็ต่อเมื่อข้อความเหมือนกันเท่านั้น ต่างกันแค่คำเดียวหรือเขียนคนละแบบก็เป็นคนละ entry
 
 **Q3.2** Next week you deploy a better large model. What must happen to the cache, and how would you design for it?
 
 *สัปดาห์หน้าจะ deploy large model ตัวใหม่ที่ดีกว่าเดิม ต้องทำอะไรกับ cache และจะออกแบบรองรับเรื่องนี้อย่างไร*
 
->
+>ต้องเลิกใช้ entry เดิม เพราะ label ใน cache มาจากโมเดลเก่า ถ้าไม่ทำ รีวิวที่ซ้ำจะยังได้คำตอบเก่าและไม่ได้ประโยชน์จากโมเดลใหม่  
+ออกแบบโดยใส่ model version ไว้ใน cache key ตามหลัก versioning models เมื่อเปลี่ยน version แล้ว entry เก่าจะไม่ถูกอ่านและถูก LRU ไล่ออกเอง และรองรับ canary release ที่มีสองรุ่นพร้อมกันได้
 
 ## Debrief
 
@@ -109,4 +111,4 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 
 *ยกตัวอย่างหนึ่งสิ่งที่ได้เรียนรู้จากการวัดผลครั้งนี้ ที่ไม่มีพูดถึงใน lecture*
 
->
+>Lecture บอกว่า cache เหมาะกับ prediction ที่แพงและมี input ซ้ำๆ แต่ไม่ได้พูดถึงว่าเมื่อใช้คู่กับ cascade สองเงื่อนไขนี้อาจไม่เกิดพร้อมกัน: t3-cache มี cache hits 36% แต่ large calls ลดจาก 38% (t2-0.6) เหลือ 31% เท่านั้น เพราะรีวิวที่ซ้ำบ่อยส่วนใหญ่เป็นรีวิวสั้นที่ small model ตอบเองได้อยู่แล้ว การดู hit rate อย่างเดียวจึงประเมินประโยชน์ของ cache สูงเกินจริง
