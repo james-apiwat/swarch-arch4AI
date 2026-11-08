@@ -58,12 +58,14 @@ Copy result rows from `results/runs.csv` (or the load test's output) into the ta
 >- timeout 10 วินาที ไม่ส่งผลอะไรเนื่องจาก timeout ของระบบน้อยกว่า 10 วินาทีอยู่แล้ว อ้างอิงจากผลของ t1-before ที่ให้ค่า acccuracy ที่เท่ากัน
   
 
+## Task 2: Cascade (copy the Task 2 results from results/runs.csv here / copy ผลลัพธ์ของ Task 2 จาก results/runs.csv มาวางที่นี่)
+
 | Run | threshold | p50 ms | p95 ms | accuracy | large calls |
 |---|---|---|---|---|---|
-| t2-0.6 | 0.6 | | | | |
-| t2-0.7 | 0.7 | | | | |
-| t2-0.8 | 0.8 | | | | |
-| t2-0.9 | 0.9 | | | | |
+| t2-0.6 | 0.6 |17 |539 |91.50% | 38%|
+| t2-0.7 | 0.7 |338 |574 |93.00% | 53%|
+| t2-0.8 | 0.8 |443 |604 |93.50% | 64%|
+| t2-0.9 | 0.9 |490 |613 |93.50% |77% |
 
 **Q2.1** Which threshold would you deploy for CampusEats, and why? Name the quality you give up.
 
